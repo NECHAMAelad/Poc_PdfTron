@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="native\win-x64\PDFNetC.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="native\win-x64\PDFNetC.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- העתקת PDFNetC.dll לשורש אחרי build -->
+  <Target Name="CopyPDFNetCToRoot" AfterTargets="Build">
+    <Copy SourceFiles="$(OutputPath)native\win-x64\PDFNetC.dll" 
+          DestinationFiles="$(OutputPath)PDFNetC.dll" 
+          SkipUnchangedFiles="true" />
+    <Message Text="✅ Copied PDFNetC.dll to output root" Importance="high" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="PDFTronDotNet">
+      <HintPath>..\..\..\PdfTronNuget\PDFNetC64\PDFNetC64\Lib\net8.0\PDFTronDotNet.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

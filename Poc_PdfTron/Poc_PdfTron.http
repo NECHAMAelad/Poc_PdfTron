@@ -1,0 +1,6 @@
+@Poc_PdfTron_HostAddress = http://localhost:5063
+
+GET {{Poc_PdfTron_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
