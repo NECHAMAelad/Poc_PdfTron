@@ -2,6 +2,8 @@
 
 A production-ready ASP.NET Core 8.0 Web API for converting **42+ file formats** to PDF using PDFTron SDK.
 
+**🆕 NEW: Merge multiple files into a single PDF!**
+
 ---
 
 ## 🚀 Quick Start
@@ -45,6 +47,23 @@ The API will start on `http://localhost:5063`
 
 ---
 
+## 🎯 Features
+
+### Single File Conversion
+Convert any supported file format to PDF
+
+### 🆕 Multiple File Merging
+Merge multiple files (of any supported format) into a single PDF document:
+- ✅ Mix different file types (Word, Excel, images, etc.)
+- ✅ Files are merged in the order specified
+- ✅ Continues processing even if some files fail
+- ✅ Detailed success/failure reporting
+- ✅ Auto-generated or custom output names
+
+**See full merge documentation:** `Tests/MERGE_API_GUIDE.md`
+
+---
+
 ## 🎯 Usage Examples
 
 ### Web UI (Built-in)
@@ -56,7 +75,7 @@ The API will start on `http://localhost:5063`
 
 ### API Endpoints
 
-#### Convert File
+#### Convert Single File
 ```http
 POST /api/pdfconversion/upload-and-convert
 Content-Type: multipart/form-data
@@ -68,7 +87,32 @@ FormData:
 Response: application/pdf (binary)
 ```
 
-#### PowerShell Example
+#### 🆕 Merge Multiple Files
+```http
+POST /api/pdfconversion/merge
+Content-Type: application/json
+
+{
+  "sourceFiles": "document1.docx,image.jpg,spreadsheet.xlsx",
+  "outputFileName": "combined_report"
+}
+
+Response: JSON with merge results
+```
+
+#### 🆕 Merge and Download
+```http
+POST /api/pdfconversion/merge-and-download
+Content-Type: application/json
+
+{
+  "sourceFiles": "file1.docx,file2.pdf,file3.jpg"
+}
+
+Response: application/pdf (binary)
+```
+
+#### PowerShell Example - Single File
 ```powershell
 # Upload and convert a Word document
 $file = Get-Item "C:\path\to\document.docx"
@@ -84,6 +128,24 @@ $response = Invoke-WebRequest `
 
 # Save PDF
 [System.IO.File]::WriteAllBytes("output.pdf", $response.Content)
+```
+
+#### 🆕 PowerShell Example - Merge Files
+```powershell
+# Merge multiple files into one PDF
+$body = @{
+    sourceFiles = "document1.docx,presentation.pptx,report.xlsx"
+    outputFileName = "quarterlyReport"
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod `
+    -Uri "http://localhost:5063/api/pdfconversion/merge" `
+    -Method Post `
+    -Body $body `
+    -ContentType "application/json"
+
+Write-Host "Merged PDF: $($response.outputFilePath)"
+Write-Host "Files processed: $($response.filesProcessed) of $($response.totalFiles)"
 ```
 
 #### C# Example
@@ -128,6 +190,21 @@ This does **EVERYTHING** automatically:
 
 ---
 
+### 🆕 Test File Merging
+
+```powershell
+# Interactive merge testing
+Tests\testMerge.ps1
+```
+
+This script will:
+- List available files in InputFolder
+- Let you select files to merge (comma-separated)
+- Test both merge endpoints
+- Open the resulting PDF
+
+---
+
 ### Quick Commands
 
 ```powershell
@@ -139,6 +216,9 @@ Tests\start-both.ps1
 
 # Quick smoke test
 Tests\quick-test.ps1
+
+# Test merge functionality
+Tests\testMerge.ps1
 ```
 
 ### Run All Tests
@@ -221,6 +301,8 @@ Poc_PdfTron/
 |--------|----------|-------------|
 | POST | `/api/pdfconversion/upload-and-convert` | Upload file and get PDF |
 | POST | `/api/pdfconversion/convert-and-download` | Convert by file path |
+| **POST** | **`/api/pdfconversion/merge`** | **🆕 Merge multiple files (returns info)** |
+| **POST** | **`/api/pdfconversion/merge-and-download`** | **🆕 Merge multiple files (returns PDF)** |
 | GET | `/api/pdfconversion/validate` | Validate file |
 | GET | `/health` | Health check |
 | GET | `/swagger` | API documentation |
@@ -237,6 +319,27 @@ Poc_PdfTron/
   "errorMessage": null
 }
 ```
+
+### 🆕 Merge Files Response
+
+```json
+{
+  "success": true,
+  "outputFilePath": "C:\\Temp\\Output\\mergePDF_20250122_143052.pdf",
+  "outputFileName": "mergePDF_20250122_143052.pdf",
+  "filesProcessed": 3,
+  "totalFiles": 3,
+  "successfulFiles": [
+    "document1.docx",
+    "image.jpg",
+    "spreadsheet.xlsx"
+  ],
+  "failedFiles": [],
+  "duration": "00:00:05.1234567"
+}
+```
+
+**For detailed merge API documentation, see:** `Tests/MERGE_API_GUIDE.md`
 
 ---
 

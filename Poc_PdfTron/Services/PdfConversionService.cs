@@ -436,4 +436,251 @@ public class PdfConversionService : IPdfConversionService
             throw new InvalidOperationException("Failed to create required directories", ex);
         }
     }
+
+    /// <summary>
+    /// Merge multiple files into a single PDF
+    /// </summary>
+    public async Task<MergeResponse> MergeFilesToPdfAsync(List<string> sourceFileNames, string? outputFileName = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var successfulFiles = new List<string>();
+        var failedFiles = new List<FileError>();
+        var tempPdfFiles = new List<string>();
+
+        try
+        {
+            _logger.LogInformation("Starting merge operation for {Count} files", sourceFileNames.Count);
+
+            // Ensure PDFTron is initialized
+            InitializePdfTron();
+
+            // Validate input
+            if (sourceFileNames == null || sourceFileNames.Count == 0)
+            {
+                return MergeResponse.CreateError("No files provided for merging");
+            }
+
+            // Step 1: Convert each file to PDF (to temp location)
+            _logger.LogInformation("Step 1: Converting files to PDF format...");
+            
+            foreach (var fileName in sourceFileNames)
+            {
+                try
+                {
+                    var sourceFilePath = Path.Combine(_options.InputDirectory, fileName.Trim());
+                    
+                    // Validate file
+                    var (isValid, validationError) = await ValidateFileAsync(sourceFilePath);
+                    if (!isValid)
+                    {
+                        _logger.LogWarning("File validation failed for {FileName}: {Error}", fileName, validationError);
+                        failedFiles.Add(new FileError 
+                        { 
+                            FileName = fileName, 
+                            ErrorMessage = validationError ?? "Validation failed" 
+                        });
+                        continue;
+                    }
+
+                    // Convert to PDF (to temp location)
+                    var tempPdfPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.pdf");
+                    
+                    var fileExtension = Path.GetExtension(sourceFilePath).ToLowerInvariant();
+                    await Task.Run(() => PerformConversionByType(sourceFilePath, tempPdfPath, fileExtension));
+                    
+                    tempPdfFiles.Add(tempPdfPath);
+                    successfulFiles.Add(fileName);
+                    
+                    _logger.LogInformation("Successfully converted {FileName} to PDF", fileName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to convert {FileName}", fileName);
+                    failedFiles.Add(new FileError 
+                    { 
+                        FileName = fileName, 
+                        ErrorMessage = $"{ex.GetType().Name}: {ex.Message}" 
+                    });
+                }
+            }
+
+            // Check if we have any files to merge
+            if (tempPdfFiles.Count == 0)
+            {
+                stopwatch.Stop();
+                return MergeResponse.CreateError(
+                    "No files were successfully converted to PDF",
+                    $"Failed to convert all {sourceFileNames.Count} files");
+            }
+
+            // Step 2: Merge all PDF files
+            _logger.LogInformation("Step 2: Merging {Count} PDF files...", tempPdfFiles.Count);
+            
+            var finalOutputPath = PrepareMergeOutputPath(outputFileName);
+            await Task.Run(() => MergePdfFiles(tempPdfFiles, finalOutputPath));
+
+            stopwatch.Stop();
+            
+            _logger.LogInformation(
+                "Merge operation completed: {OutputPath} ({SuccessCount}/{TotalCount} files, Duration: {Duration}ms)",
+                finalOutputPath,
+                successfulFiles.Count,
+                sourceFileNames.Count,
+                stopwatch.ElapsedMilliseconds);
+
+            return MergeResponse.CreateSuccess(
+                finalOutputPath,
+                sourceFileNames.Count,
+                successfulFiles.Count,
+                successfulFiles,
+                failedFiles,
+                stopwatch.Elapsed);
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "Merge operation failed");
+            
+            return MergeResponse.CreateError(
+                "Merge operation failed",
+                $"{ex.GetType().Name}: {ex.Message}");
+        }
+        finally
+        {
+            // Clean up temporary PDF files
+            foreach (var tempFile in tempPdfFiles)
+            {
+                try
+                {
+                    if (File.Exists(tempFile))
+                    {
+                        File.Delete(tempFile);
+                        _logger.LogDebug("Deleted temporary file: {TempFile}", tempFile);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete temporary file: {TempFile}", tempFile);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Merge multiple PDF files into a single PDF with normalized page sizes
+    /// </summary>
+    private void MergePdfFiles(List<string> pdfFiles, string outputPath)
+    {
+        try
+        {
+            _logger.LogDebug("Merging {Count} PDF files into {Output}", pdfFiles.Count, outputPath);
+
+            using (var mergedDoc = new PDFDoc())
+            {
+                // Standard page size - A4 in points (595 x 842)
+                const double standardWidth = 595.0;
+                const double standardHeight = 842.0;
+                
+                // Add each PDF to the merged document
+                foreach (var pdfFile in pdfFiles)
+                {
+                    try
+                    {
+                        using (var currentDoc = new PDFDoc(pdfFile))
+                        {
+                            // Get page count
+                            int pageCount = currentDoc.GetPageCount();
+                            
+                            // Check and normalize each page
+                            for (int i = 1; i <= pageCount; i++)
+                            {
+                                var page = currentDoc.GetPage(i);
+                                var pageRect = page.GetCropBox();
+                                double pageWidth = pageRect.Width();
+                                double pageHeight = pageRect.Height();
+                                
+                                // Check if page needs resizing (images are often huge)
+                                if (pageWidth > (standardWidth * 1.5) || 
+                                    pageHeight > (standardHeight * 1.5) ||
+                                    pageWidth < (standardWidth * 0.5) ||
+                                    pageHeight < (standardHeight * 0.5))
+                                {
+                                    _logger.LogInformation("Normalizing page {Page} from {Width}x{Height} to A4", 
+                                        i, pageWidth, pageHeight);
+                                    
+                                    // Calculate scaling to fit within A4
+                                    double scaleX = standardWidth / pageWidth;
+                                    double scaleY = standardHeight / pageHeight;
+                                    double scale = Math.Min(scaleX, scaleY);
+                                    
+                                    // Scale content
+                                    page.Scale(scale);
+                                    
+                                    // Update page boxes to A4 after scaling
+                                    page.SetMediaBox(new pdftron.PDF.Rect(0, 0, standardWidth, standardHeight));
+                                    page.SetCropBox(new pdftron.PDF.Rect(0, 0, standardWidth, standardHeight));
+                                }
+                            }
+                            
+                            // Import all pages (now normalized)
+                            mergedDoc.InsertPages(
+                                mergedDoc.GetPageCount() + 1,
+                                currentDoc,
+                                1,
+                                pageCount,
+                                PDFDoc.InsertFlag.e_none);
+                            
+                            _logger.LogDebug("Added {Count} pages from {PdfFile}", 
+                                pageCount, Path.GetFileName(pdfFile));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to add PDF file to merge: {PdfFile}", pdfFile);
+                        throw;
+                    }
+                }
+
+                // Save merged document with linearization
+                mergedDoc.Save(outputPath, SDFDoc.SaveOptions.e_linearized);
+                
+                _logger.LogDebug("Merged PDF saved successfully: {OutputPath}", outputPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "PDF merge failed");
+            throw new InvalidOperationException($"Failed to merge PDF files: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Prepare output file path for merged PDF
+    /// </summary>
+    private string PrepareMergeOutputPath(string? outputFileName)
+    {
+        try
+        {
+            // Determine file name
+            var fileName = !string.IsNullOrWhiteSpace(outputFileName)
+                ? outputFileName
+                : "mergePDF";
+
+            // Add timestamp
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var pdfFileName = $"{fileName}_{timestamp}.pdf";
+
+            // Build full output path
+            var outputPath = Path.Combine(_options.OutputDirectory, pdfFileName);
+
+            _logger.LogInformation("Merge output path prepared: {OutputPath}", outputPath);
+
+            return outputPath;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error preparing merge output path");
+            throw new InvalidOperationException("Failed to prepare merge output path", ex);
+        }
+    }
 }
