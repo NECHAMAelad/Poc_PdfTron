@@ -24,6 +24,14 @@ public interface IPdfConversionService
     Task<ConversionResponse> ConvertUploadedFileToPdfAsync(string sourceFilePath, string? outputFileName = null);
 
     /// <summary>
+    /// Merge multiple files into a single PDF
+    /// </summary>
+    /// <param name="sourceFileNames">List of file names (not full paths) from InputDirectory</param>
+    /// <param name="outputFileName">Optional custom output file name (without extension)</param>
+    /// <returns>Merge response with result details</returns>
+    Task<MergeResponse> MergeFilesToPdfAsync(List<string> sourceFileNames, string? outputFileName = null);
+
+    /// <summary>
     /// Validate if a file is suitable for conversion
     /// </summary>
     /// <param name="filePath">Path to the file</param>

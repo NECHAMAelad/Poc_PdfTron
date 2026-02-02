@@ -1,12 +1,53 @@
-# ?? Test Scripts
+﻿# ?? Test Scripts
 
 This folder contains all test and utility scripts for the PDF Conversion API.
 
 ---
 
-## ? NEW: Simple One-Click Test
+## ⭐ NEW: File Merging Scripts
 
-### `testPdfTron.ps1` ? **RECOMMENDED FOR MANAGERS**
+### `quick-merge-test.ps1` 🆕 **AUTO START + MERGE TEST**
+**Complete automatic test - starts server AND tests merge functionality!**
+```powershell
+# Interactive mode - asks what to merge
+.\quick-merge-test.ps1
+
+# Direct mode - specify files
+.\quick-merge-test.ps1 -Files "file1.docx,file2.jpg,file3.xlsx"
+
+# With custom output name
+.\quick-merge-test.ps1 -Files "file1.docx,file2.jpg" -OutputName "merged_report"
+```
+
+**What it does automatically:**
+1. ✅ Checks if server is running
+2. ✅ Starts server if needed (in separate window)
+3. ✅ Shows available files with numbers
+4. ✅ Lets you select files by number or name
+5. ✅ Merges files into single PDF
+6. ✅ Opens the result
+7. ✅ Keeps server running for next use
+
+**Perfect for testing merge functionality!** 🔀📄
+
+**Hebrew guide:** `מדריך_quick_merge.md`
+
+### `testMerge.ps1` 🆕 **MERGE TEST (requires running server)**
+**Test merge functionality when server is already running**
+```powershell
+.\testMerge.ps1
+```
+- Lists available files
+- Tests both merge endpoints
+- Shows detailed results
+
+**Note:** Requires server to be running first. Use `quick-merge-test.ps1` instead for automatic server start.
+
+---
+
+## 🚀 NEW: Simple One-Click Test
+
+### `testPdfTron.ps1` ⭐ **RECOMMENDED FOR MANAGERS**
 **Convert any file with ONE command - everything automatic!**
 ```powershell
 # Just provide the filename - the script does EVERYTHING:
@@ -14,16 +55,16 @@ This folder contains all test and utility scripts for the PDF Conversion API.
 ```
 
 **What it does automatically:**
-1. ? Validates your file exists
-2. ? Starts the API server
-3. ? Waits for server to be ready
-4. ? Converts your file to PDF
-5. ? Opens the PDF for you
-6. ? Gives you options to continue or stop
+1. ✅ Validates your file exists
+2. ✅ Starts the API server
+3. ✅ Waits for server to be ready
+4. ✅ Converts your file to PDF
+5. ✅ Opens the PDF for you
+6. ✅ Gives you options to continue or stop
 
-**Perfect for non-technical users!** ??
+**Perfect for non-technical users!** 👨‍💼
 
-### ?? Encoding Fixed!
+### 🌐 Encoding Fixed!
 
 **If you see garbled text** (Chinese/strange characters):
 - The script has been updated to use plain English text only

@@ -18,13 +18,12 @@
 
   <!-- העתקת PDFNetC.dll לשורש אחרי build -->
   <Target Name="CopyPDFNetCToRoot" AfterTargets="Build">
-    <Copy SourceFiles="$(OutputPath)native\win-x64\PDFNetC.dll" 
-          DestinationFiles="$(OutputPath)PDFNetC.dll" 
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(OutputPath)native\win-x64\PDFNetC.dll" DestinationFiles="$(OutputPath)PDFNetC.dll" SkipUnchangedFiles="true" />
     <Message Text="✅ Copied PDFNetC.dll to output root" Importance="high" />
   </Target>
 
   <ItemGroup>
+    <PackageReference Include="PDFTron.NET.x64" Version="11.10.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
