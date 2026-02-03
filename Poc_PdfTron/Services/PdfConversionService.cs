@@ -460,8 +460,8 @@ public class PdfConversionService : IPdfConversionService
                 return MergeResponse.CreateError("No files provided for merging");
             }
 
-            // Step 1: Convert each file to PDF (to temp location)
-            _logger.LogInformation("Step 1: Converting files to PDF format...");
+            // Step 1: Convert each file to PDF (to temp location) OR copy if already PDF
+            _logger.LogInformation("Step 1: Preparing PDF files...");
             
             foreach (var fileName in sourceFileNames)
             {
@@ -482,20 +482,31 @@ public class PdfConversionService : IPdfConversionService
                         continue;
                     }
 
-                    // Convert to PDF (to temp location)
+                    var fileExtension = Path.GetExtension(sourceFilePath).ToLowerInvariant();
                     var tempPdfPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.pdf");
                     
-                    var fileExtension = Path.GetExtension(sourceFilePath).ToLowerInvariant();
-                    await Task.Run(() => PerformConversionByType(sourceFilePath, tempPdfPath, fileExtension));
+                    // Check if file is already a PDF
+                    if (fileExtension == ".pdf")
+                    {
+                        // File is already PDF - just copy it
+                        _logger.LogInformation("File {FileName} is already PDF - copying directly", fileName);
+                        File.Copy(sourceFilePath, tempPdfPath, overwrite: true);
+                    }
+                    else
+                    {
+                        // Convert to PDF
+                        _logger.LogInformation("Converting {FileName} to PDF", fileName);
+                        await Task.Run(() => PerformConversionByType(sourceFilePath, tempPdfPath, fileExtension));
+                    }
                     
                     tempPdfFiles.Add(tempPdfPath);
                     successfulFiles.Add(fileName);
                     
-                    _logger.LogInformation("Successfully converted {FileName} to PDF", fileName);
+                    _logger.LogInformation("Successfully prepared {FileName} for merging", fileName);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to convert {FileName}", fileName);
+                    _logger.LogError(ex, "Failed to prepare {FileName}", fileName);
                     failedFiles.Add(new FileError 
                     { 
                         FileName = fileName, 
@@ -509,8 +520,8 @@ public class PdfConversionService : IPdfConversionService
             {
                 stopwatch.Stop();
                 return MergeResponse.CreateError(
-                    "No files were successfully converted to PDF",
-                    $"Failed to convert all {sourceFileNames.Count} files");
+                    "No files were successfully prepared for merging",
+                    $"Failed to prepare all {sourceFileNames.Count} files");
             }
 
             // Step 2: Merge all PDF files

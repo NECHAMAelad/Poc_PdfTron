@@ -28,7 +28,7 @@ The API will start on `http://localhost:5063`
 
 ---
 
-## 📦 Supported File Formats (42 types)
+## 📦 Supported File Formats (43 types)
 
 ### Microsoft Office (21 formats)
 - **Word**: `.doc`, `.docx`, `.docm`, `.dot`, `.dotx`, `.dotm`
@@ -42,6 +42,9 @@ The API will start on `http://localhost:5063`
 ### Text Files (6 formats)
 `.txt`, `.rtf`, `.html`, `.htm`, `.xml`, `.md`
 
+### 🆕 PDF (1 format)
+`.pdf` - **Merge existing PDF files directly!**
+
 ### Other (3 formats)
 `.xps`, `.oxps`, `.pcl`
 
@@ -54,13 +57,20 @@ Convert any supported file format to PDF
 
 ### 🆕 Multiple File Merging
 Merge multiple files (of any supported format) into a single PDF document:
-- ✅ Mix different file types (Word, Excel, images, etc.)
+- ✅ Mix different file types (Word, Excel, images, **PDF**, etc.)
+- ✅ **Merge existing PDF files directly** (no conversion needed!)
 - ✅ Files are merged in the order specified
 - ✅ Continues processing even if some files fail
 - ✅ Detailed success/failure reporting
 - ✅ Auto-generated or custom output names
+- ✅ **Fast: PDF files are copied directly, not converted**
 
-**See full merge documentation:** `Tests/MERGE_API_GUIDE.md`
+**Examples:**
+- Merge PDFs only: `report1.pdf + report2.pdf + report3.pdf`
+- Mix everything: `cover.pdf + document.docx + chart.xlsx + logo.jpg`
+
+**See full merge documentation:** `Tests/MERGE_API_GUIDE.md`  
+**PDF merge guide:** `PDF_MERGE_SUPPORT.md`
 
 ---
 

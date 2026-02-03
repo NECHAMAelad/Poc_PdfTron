@@ -27,12 +27,13 @@ public class PdfConversionOptions
 
     /// <summary>
     /// Allowed file extensions for conversion (loaded from appsettings.json)
-    /// Supports 40 different formats including:
+    /// Supports 43 different formats including:
     /// - Office: Word (.doc, .docx, .docm, .dot, .dotx, .dotm)
     /// - Office: Excel (.xls, .xlsx, .xlsm, .xlt, .xltx, .xltm)
     /// - Office: PowerPoint (.ppt, .pptx, .pptm, .pot, .potx, .potm, .pps, .ppsx, .ppsm)
     /// - Images (.jpg, .jpeg, .png, .bmp, .gif, .tif, .tiff, .webp, .svg, .emf, .wmf, .eps)
     /// - Text (.txt, .rtf, .xml, .md)
+    /// - PDF (.pdf) - for merging existing PDFs
     /// - Other (.xps, .oxps, .pcl)
     /// Note: HTML requires Microsoft Word to be installed
     /// </summary>
@@ -49,6 +50,9 @@ public class PdfConversionOptions
 
         // Text & Markup (4 formats) - HTML removed, requires MS Word
         ".txt", ".rtf", ".xml", ".md",
+
+        // PDF (1 format) - for merging existing PDFs
+        ".pdf",
 
         // Other formats (3 formats)
         ".xps", ".oxps", ".pcl"

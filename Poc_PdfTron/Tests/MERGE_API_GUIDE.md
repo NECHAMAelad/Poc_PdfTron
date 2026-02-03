@@ -249,20 +249,60 @@ Start-Process $downloadPath
 
 ---
 
-## Integration with Existing Endpoints
+# 📖 PDF Merge API - Complete Guide
 
-ה-endpoints החדשים עובדים בצורה דומה ל-endpoints הקיימים:
+## Overview
 
-| Endpoint | Purpose | Returns |
-|----------|---------|---------|
-| `/convert` | המרת קובץ בודד | JSON info |
-| `/convert-and-download` | המרת קובץ בודד | PDF file |
-| `/upload-and-convert` | העלאה + המרה | PDF file |
-| **`/merge`** | **איחוד קבצים** | **JSON info** |
-| **`/merge-and-download`** | **איחוד קבצים** | **PDF file** |
+The PDF Merge API allows you to merge multiple files of **any supported format** into a single PDF document. This includes:
+- Microsoft Office documents (Word, Excel, PowerPoint)
+- Images (JPG, PNG, etc.)
+- **🆕 Existing PDF files**
+- Text files
+- And 43 more formats!
 
-כל ה-endpoints תומכים ב:
-- Swagger documentation
-- Logging מלא
-- Error handling עקבי
-- Validation
+### 🚀 Key Features
+
+- ✅ **43 supported file formats** (including PDF!)
+- ✅ **Mix any file types** - Word + Excel + Images + PDFs
+- ✅ **Smart processing** - PDFs are copied directly (3x faster!)
+- ✅ **Partial success** - Continues even if some files fail
+- ✅ **Order preservation** - Files merged in specified order
+- ✅ **Automatic page sizing** - All pages normalized to A4
+- ✅ **Detailed reporting** - Success/failure for each file
+
+---
+
+## 🎯 Common Use Cases
+
+### 1. Merge PDF Documents Only
+```json
+{
+  "sourceFiles": "invoice1.pdf,invoice2.pdf,invoice3.pdf",
+  "outputFileName": "combined_invoices"
+}
+```
+**Result:** All PDFs combined into one - **Fast!** (No conversion needed)
+
+### 2. Create Comprehensive Report
+```json
+{
+  "sourceFiles": "cover.pdf,summary.docx,data.xlsx,chart.jpg,appendix.pdf",
+  "outputFileName": "quarterly_report"
+}
+```
+**Result:** Professional report with title page, content, data, charts, and appendices
+
+### 3. Merge Invoices with Summary
+```json
+{
+  "sourceFiles": "summary.docx,jan.pdf,feb.pdf,mar.pdf",
+  "outputFileName": "q1_invoices"
+}
+```
+
+### 4. Mixed Document Types
+```json
+{
+  "sourceFiles": "letter.docx,contract.pdf,pricing.xlsx,signature.jpg",
+  "outputFileName": "complete_proposal"
+}
