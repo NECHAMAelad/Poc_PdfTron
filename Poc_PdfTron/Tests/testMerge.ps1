@@ -1,5 +1,5 @@
 ﻿# Test script for PDF Merge functionality
-# סקריפט בדיקה לאיחוד קבצים ל-PDF
+# Test script for merging files to PDF
 
 param(
     [string]$BaseUrl = "http://localhost:5063",
