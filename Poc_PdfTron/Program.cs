@@ -92,8 +92,7 @@ app.MapGet("/health", () => Results.Ok(new
     message = "API is running successfully"
 }))
     .WithName("HealthCheck")
-    .WithTags("Health")
-    .WithDescription("Basic health check endpoint");
+    .WithTags("Health");
 
 app.MapGet("/health/pdfnetc", () =>
 {
@@ -121,8 +120,7 @@ app.MapGet("/health/pdfnetc", () =>
     }
 })
 .WithName("PDFNetCHealthCheck")
-.WithTags("Health")
-.WithDescription("Check if PDFNetC native library can be loaded");
+.WithTags("Health");
 
 // =====================================================
 // Initialize PDFTron at Startup
