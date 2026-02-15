@@ -1,15 +1,33 @@
 ﻿# 📄 PDF Conversion API - Complete Guide
 
-A production-ready ASP.NET Core 8.0 Web API for converting **42+ file formats** to PDF using PDFTron SDK.
+A production-ready ASP.NET Core **6.0** Web API for converting **42+ file formats** to PDF using PDFTron SDK.
 
+**🆕 NEW: Compatible with Visual Studio 2019!**  
 **🆕 NEW: Merge multiple files into a single PDF!**
+
+---
+
+## 🎯 Visual Studio Compatibility
+
+This project is now **fully compatible with Visual Studio 2019** (version 16.11+).
+
+### Supported Visual Studio Versions
+- ✅ **Visual Studio 2022** (all versions)
+- ✅ **Visual Studio 2019** (version 16.11 and above)
+
+### .NET Version
+- **Target Framework**: **.NET 6.0 LTS**
+- **Language**: C# 10.0
+
+📘 **For detailed VS2019 setup instructions, see:** `VS2019_COMPATIBILITY.md`
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **.NET 8 SDK** - [Download](https://dotnet.microsoft.com/download/dotnet/8.0)
+- **.NET 6.0 SDK** - [Download](https://dotnet.microsoft.com/download/dotnet/6.0)
+- **Visual Studio 2019 (16.11+)** or **Visual Studio 2022**
 - **PDFTron SDK** (included)
 - **Windows** (for native libraries)
 
@@ -131,9 +149,9 @@ $form = @{
     outputFileName = "converted_doc"
 }
 
-$response = Invoke-WebRequest `
-    -Uri "http://localhost:5063/api/pdfconversion/upload-and-convert" `
-    -Method POST `
+$response = Invoke-WebRequest ``
+    -Uri "http://localhost:5063/api/pdfconversion/upload-and-convert" ``
+    -Method POST ``
     -Form $form
 
 # Save PDF
@@ -148,10 +166,10 @@ $body = @{
     outputFileName = "quarterlyReport"
 } | ConvertTo-Json
 
-$response = Invoke-RestMethod `
-    -Uri "http://localhost:5063/api/pdfconversion/merge" `
-    -Method Post `
-    -Body $body `
+$response = Invoke-RestMethod ``
+    -Uri "http://localhost:5063/api/pdfconversion/merge" ``
+    -Method Post ``
+    -Body $body ``
     -ContentType "application/json"
 
 Write-Host "Merged PDF: $($response.outputFilePath)"
@@ -364,6 +382,18 @@ dotnet build
 dotnet run
 ```
 
+### .NET 6.0 SDK Not Found
+
+**Error**: "The target framework 'net6.0' is not supported"
+
+**Solution**: Download and install .NET 6.0 SDK:
+- https://dotnet.microsoft.com/download/dotnet/6.0
+
+Verify installation:
+```powershell
+dotnet --list-sdks
+```
+
 ### Port Already in Use
 
 ```powershell
@@ -378,7 +408,7 @@ taskkill /PID [PID_NUMBER] /F
 
 ```powershell
 # Verify the file exists
-Test-Path "bin\Debug\net8.0\PDFNetC.dll"
+Test-Path "bin\Debug\net6.0\PDFNetC.dll"
 
 # If missing, rebuild
 dotnet build
@@ -412,6 +442,11 @@ Tests\test-concurrent-load.ps1 -MaxParallel 10
 ---
 
 ## 🛠️ Development
+
+### Open in Visual Studio 2019/2022
+1. Open `Poc_PdfTron.sln` or `Poc_PdfTron.csproj`
+2. Restore NuGet packages (right-click project > Restore NuGet Packages)
+3. Press F5 to run
 
 ### Build
 ```powershell
@@ -535,11 +570,11 @@ dotnet publish -c Release -o ./publish
 ### Docker (Optional)
 
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
 WORKDIR /app
 EXPOSE 5063
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
 COPY ["Poc_PdfTron.csproj", "./"]
 RUN dotnet restore
@@ -561,8 +596,9 @@ ENTRYPOINT ["dotnet", "Poc_PdfTron.dll"]
 
 - **Swagger UI**: `http://localhost:5063/swagger`
 - **PDFTron Documentation**: https://www.pdftron.com/documentation/
-- **.NET 8 Documentation**: https://learn.microsoft.com/dotnet/
+- **.NET 6 Documentation**: https://learn.microsoft.com/dotnet/core/whats-new/dotnet-6
 - **Get Demo License**: https://www.pdftron.com/pws/get-key
+- **VS2019 Compatibility Guide**: `VS2019_COMPATIBILITY.md`
 
 ---
 
@@ -580,7 +616,8 @@ This is a proof-of-concept project. Feel free to fork and adapt for your needs.
 
 ## ✅ Checklist for First Run
 
-- [ ] Install .NET 8 SDK
+- [ ] Install .NET 6.0 SDK
+- [ ] Install Visual Studio 2019 (16.11+) or VS 2022
 - [ ] Clone/download project
 - [ ] Run `dotnet restore`
 - [ ] Run `dotnet build`
@@ -597,6 +634,7 @@ This is a proof-of-concept project. Feel free to fork and adapt for your needs.
 This is a **complete, production-ready PDF conversion API** with:
 
 ✅ 42+ supported file formats  
+✅ **Visual Studio 2019 compatible!**  
 ✅ Built-in web UI for uploads  
 ✅ Comprehensive test suite  
 ✅ Performance testing tools  
@@ -625,4 +663,5 @@ start http://localhost:5063/swagger
 
 **Ready to convert! 🚀**
 
-> Built with .NET 8 and PDFTron SDK
+> Built with .NET 6.0 and PDFTron SDK  
+> Compatible with Visual Studio 2019/2022

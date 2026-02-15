@@ -37,8 +37,8 @@ public class PdfConversionOptions
     /// - Other (.xps, .oxps, .pcl)
     /// Note: HTML requires Microsoft Word to be installed
     /// </summary>
-    public string[] AllowedExtensions { get; set; } =
-    [
+    public string[] AllowedExtensions { get; set; } = new string[]
+    {
         // Microsoft Office Documents (21 formats)
         ".doc", ".docx", ".docm", ".dot", ".dotx", ".dotm",
         ".xls", ".xlsx", ".xlsm", ".xlt", ".xltx", ".xltm",
@@ -56,7 +56,7 @@ public class PdfConversionOptions
 
         // Other formats (3 formats)
         ".xps", ".oxps", ".pcl"
-    ];
+    };
 
     /// <summary>
     /// Maximum allowed file size in megabytes (MB)
