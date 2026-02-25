@@ -37,6 +37,33 @@ public class PdfConversionService : IPdfConversionService
         ".html", ".htm"
     };
 
+    // Magic bytes for file type detection
+    private static readonly Dictionary<string, byte[][]> FileMagicBytes = new()
+    {
+        // PDF
+        { ".pdf", new[] { new byte[] { 0x25, 0x50, 0x44, 0x46 } } }, // %PDF
+
+        // Microsoft Office (ZIP-based: DOCX, XLSX, PPTX)
+        { ".docx", new[] { new byte[] { 0x50, 0x4B, 0x03, 0x04 } } }, // PK (ZIP)
+        { ".xlsx", new[] { new byte[] { 0x50, 0x4B, 0x03, 0x04 } } },
+        { ".pptx", new[] { new byte[] { 0x50, 0x4B, 0x03, 0x04 } } },
+
+        // Legacy Office formats
+        { ".doc", new[] { new byte[] { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 } } }, // OLE
+        { ".xls", new[] { new byte[] { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 } } },
+        { ".ppt", new[] { new byte[] { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 } } },
+
+        // Images
+        { ".jpg", new[] { new byte[] { 0xFF, 0xD8, 0xFF } } }, // JPEG
+        { ".jpeg", new[] { new byte[] { 0xFF, 0xD8, 0xFF } } },
+        { ".png", new[] { new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A } } }, // PNG
+        { ".gif", new[] { new byte[] { 0x47, 0x49, 0x46, 0x38 } } }, // GIF
+        { ".bmp", new[] { new byte[] { 0x42, 0x4D } } }, // BMP
+        { ".tif", new[] { new byte[] { 0x49, 0x49, 0x2A, 0x00 }, new byte[] { 0x4D, 0x4D, 0x00, 0x2A } } }, // TIFF
+        { ".tiff", new[] { new byte[] { 0x49, 0x49, 0x2A, 0x00 }, new byte[] { 0x4D, 0x4D, 0x00, 0x2A } } },
+        { ".webp", new[] { new byte[] { 0x52, 0x49, 0x46, 0x46 } } }, // RIFF (WebP)
+    };
+
     public PdfConversionService(
         IOptions<PdfConversionOptions> options,
         ILogger<PdfConversionService> logger)
@@ -341,12 +368,160 @@ public class PdfConversionService : IPdfConversionService
                 }
                 else if (HtmlExtensions.Contains(fileExtension))
                 {
-                    // HTML files - PDFTron requires MS Word for HTML conversion
-                    // For now, throw a more helpful error
-                    _logger.LogWarning("HTML conversion requires Microsoft Word to be installed");
-                    throw new NotSupportedException(
-                        "HTML to PDF conversion requires Microsoft Word to be installed on the server. " +
-                        "Please install Microsoft Word or use a different file format.");
+                    // HTML files - Use PDFTron's HTML2PDF module (native support, no MS Word needed)
+                    _logger.LogDebug("Using HTML2PDF conversion for HTML document");
+                    
+                    // Set module path - either configured or auto-detect from bin directory
+                    string modulePath;
+                    if (!string.IsNullOrWhiteSpace(_options.Html2PdfModulePath))
+                    {
+                        modulePath = _options.Html2PdfModulePath;
+                        _logger.LogInformation("Using configured HTML2PDF module path: {Path}", modulePath);
+                    }
+                    else
+                    {
+                        // Auto-detect: look for html2pdf.dll in the bin directory
+                        var appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                        var possiblePaths = new[]
+                        {
+                            Path.Combine(appDirectory, "html2pdf.dll"),
+                            Path.Combine(appDirectory, "html2pdf_chromium.dll"),
+                            Path.Combine(appDirectory, "native", "win-x64", "html2pdf.dll"),
+                            Path.Combine(appDirectory, "native", "win-x64", "html2pdf_chromium.dll")
+                        };
+
+                        modulePath = possiblePaths.FirstOrDefault(File.Exists);
+                        
+                        if (modulePath != null)
+                        {
+                            _logger.LogInformation("Auto-detected HTML2PDF module at: {Path}", modulePath);
+                        }
+                        else
+                        {
+                            _logger.LogError("HTML2PDF module not found in any of the expected locations:");
+                            foreach (var path in possiblePaths)
+                            {
+                                _logger.LogError("  - {Path}", path);
+                            }
+                            throw new InvalidOperationException(
+                                "HTML2PDF module (html2pdf.dll) not found. " +
+                                "Download from https://www.pdftron.com/download-center/windows/ " +
+                                "and place in bin directory or native\\win-x64\\ folder");
+                        }
+                    }
+                    
+                    // Set the module path
+                    pdftron.PDF.HTML2PDF.SetModulePath(Path.GetDirectoryName(modulePath));
+                    _logger.LogDebug("Set HTML2PDF module directory: {Dir}", Path.GetDirectoryName(modulePath));
+                    
+                    // Create HTML2PDF converter
+                    var html2Pdf = new pdftron.PDF.HTML2PDF();
+                    
+                    // Read HTML content with UTF-8 encoding to preserve Hebrew text
+                    string htmlContent;
+                    using (var reader = new System.IO.StreamReader(sourceFilePath, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true))
+                    {
+                        htmlContent = reader.ReadToEnd();
+                    }
+                    
+                    _logger.LogDebug("Read HTML content with UTF-8 encoding ({Length} characters)", htmlContent.Length);
+                    
+                    // Log first 200 characters for debugging encoding issues
+                    if (htmlContent.Length > 0)
+                    {
+                        var preview = htmlContent.Substring(0, Math.Min(200, htmlContent.Length));
+                        _logger.LogDebug("HTML content preview: {Preview}...", preview);
+                    }
+                    
+                    // Ensure HTML has proper UTF-8 meta tag and encoding declaration
+                    if (!htmlContent.Contains("charset", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation("Adding UTF-8 charset meta tag to HTML content");
+                        
+                        // Add charset meta tag if missing
+                        if (htmlContent.Contains("<head>", StringComparison.OrdinalIgnoreCase))
+                        {
+                            htmlContent = htmlContent.Replace("<head>", 
+                                "<head>\n    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n    <meta charset=\"UTF-8\">", 
+                                StringComparison.OrdinalIgnoreCase);
+                        }
+                        else if (htmlContent.Contains("<html", StringComparison.OrdinalIgnoreCase))
+                        {
+                            htmlContent = htmlContent.Replace("<html", 
+                                "<html>\n<head>\n    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n    <meta charset=\"UTF-8\">\n</head>", 
+                                StringComparison.OrdinalIgnoreCase);
+                        }
+                    }
+                    
+                    try
+                    {
+                        // CRITICAL FIX: Use InsertFromHtmlString instead of InsertFromURL
+                        // This allows us to pass the HTML content directly with proper encoding
+                        // instead of relying on PDFTron to read the file
+                        _logger.LogDebug("Converting HTML to PDF using InsertFromHtmlString with UTF-8 encoding");
+                        
+                        // Insert HTML content directly as string with UTF-8 encoding
+                        // The null parameter means use default WebPageSettings
+                        html2Pdf.InsertFromHtmlString(htmlContent);
+                        
+                        // Convert to PDF
+                        if (html2Pdf.Convert(pdfDoc))
+                        {
+                            _logger.LogDebug("HTML2PDF conversion completed successfully with UTF-8 encoding");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("HTML2PDF conversion completed with warnings");
+                        }
+                    }
+                    catch (Exception htmlEx)
+                    {
+                        _logger.LogError(htmlEx, "HTML2PDF conversion using InsertFromHtmlString failed, attempting fallback method");
+                        
+                        // Fallback: Save to temporary file with UTF-8 BOM and use file:// URL
+                        var tempHtmlPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.html");
+                        var utf8WithBom = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+                        
+                        using (var writer = new System.IO.StreamWriter(tempHtmlPath, false, utf8WithBom))
+                        {
+                            writer.Write(htmlContent);
+                        }
+                        
+                        _logger.LogDebug("Saved HTML to temporary file with UTF-8 BOM: {Path}", tempHtmlPath);
+                        
+                        try
+                        {
+                            // Use file:// URL protocol for better encoding support
+                            var fileUrl = new Uri(tempHtmlPath).AbsoluteUri;
+                            _logger.LogDebug("Using file URL: {Url}", fileUrl);
+                            
+                            html2Pdf.InsertFromURL(fileUrl);
+                            
+                            if (html2Pdf.Convert(pdfDoc))
+                            {
+                                _logger.LogDebug("HTML2PDF fallback conversion completed successfully");
+                            }
+                            else
+                            {
+                                _logger.LogWarning("HTML2PDF fallback conversion completed with warnings");
+                            }
+                        }
+                        finally
+                        {
+                            // Clean up temporary file
+                            try
+                            {
+                                if (File.Exists(tempHtmlPath))
+                                {
+                                    File.Delete(tempHtmlPath);
+                                }
+                            }
+                            catch (Exception cleanupEx)
+                            {
+                                _logger.LogWarning(cleanupEx, "Failed to delete temporary HTML file: {Path}", tempHtmlPath);
+                            }
+                        }
+                    }
                 }
                 else if (ImageExtensions.Contains(fileExtension))
                 {
@@ -366,6 +541,18 @@ public class PdfConversionService : IPdfConversionService
                 
                 _logger.LogDebug("PDFTron conversion completed successfully");
             }
+        }
+        catch (pdftron.Common.PDFNetException pdfEx) when (pdfEx.Message.Contains("html2pdf"))
+        {
+            _logger.LogError(pdfEx, "HTML2PDF module not found for: {Source}", sourceFilePath);
+            _logger.LogError("==========================================================================");
+            _logger.LogError("HTML2PDF MODULE MISSING - Required for HTML to PDF conversion");
+            _logger.LogError("Download from: https://www.pdftron.com/download-center/windows/");
+            _logger.LogError("Place html2pdf.dll in: native\\win-x64\\ folder");
+            _logger.LogError("==========================================================================");
+            throw new InvalidOperationException(
+                "HTML2PDF module not found. Download from https://www.pdftron.com/download-center/windows/ and place html2pdf.dll in native\\win-x64\\ folder", 
+                pdfEx);
         }
         catch (Exception ex)
         {
@@ -578,6 +765,115 @@ public class PdfConversionService : IPdfConversionService
     }
 
     /// <summary>
+    /// Convert HTML from URL to PDF
+    /// </summary>
+    public async Task<ConversionResponse> ConvertUrlToPdfAsync(string url, string? outputFileName = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        string? tempHtmlPath = null;
+
+        try
+        {
+            _logger.LogInformation("Starting URL to PDF conversion: {Url}", url);
+
+            // Ensure PDFTron is initialized
+            InitializePdfTron();
+
+            // Step 1: Download HTML from URL
+            _logger.LogInformation("Downloading HTML from URL...");
+            string htmlContent;
+            
+            using (var httpClient = new HttpClient())
+            {
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+                var response = await httpClient.GetAsync(url);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to download URL: {StatusCode}", response.StatusCode);
+                    return ConversionResponse.CreateError(
+                        "Failed to download HTML from URL",
+                        $"HTTP Status: {response.StatusCode}");
+                }
+
+                htmlContent = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Downloaded HTML content: {Length} characters", htmlContent.Length);
+            }
+
+            // Step 2: Save HTML to temporary file with UTF-8 encoding
+            tempHtmlPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.html");
+            var utf8WithBom = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+            await File.WriteAllTextAsync(tempHtmlPath, htmlContent, utf8WithBom);
+            
+            _logger.LogInformation("Saved HTML to temporary file: {TempPath}", tempHtmlPath);
+
+            // Step 3: Prepare output path
+            var finalOutputFileName = !string.IsNullOrWhiteSpace(outputFileName)
+                ? outputFileName
+                : $"url_conversion_{DateTime.Now:yyyyMMdd_HHmmss}";
+            
+            var outputPath = Path.Combine(_options.OutputDirectory, $"{finalOutputFileName}.pdf");
+
+            // Add timestamp if file exists
+            if (File.Exists(outputPath))
+            {
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+                finalOutputFileName = $"{finalOutputFileName}_{timestamp}";
+                outputPath = Path.Combine(_options.OutputDirectory, $"{finalOutputFileName}.pdf");
+            }
+
+            // Step 4: Convert HTML to PDF
+            _logger.LogInformation("Converting HTML to PDF...");
+            await Task.Run(() => PerformConversionByType(tempHtmlPath, outputPath, ".html"));
+
+            stopwatch.Stop();
+
+            _logger.LogInformation(
+                "URL to PDF conversion completed: {OutputPath} (Duration: {Duration}ms)",
+                outputPath,
+                stopwatch.ElapsedMilliseconds);
+
+            return ConversionResponse.CreateSuccess(outputPath, stopwatch.Elapsed);
+        }
+        catch (HttpRequestException httpEx)
+        {
+            stopwatch.Stop();
+            _logger.LogError(httpEx, "Failed to download HTML from URL: {Url}", url);
+            
+            return ConversionResponse.CreateError(
+                "Failed to download HTML from URL",
+                $"Network error: {httpEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "URL to PDF conversion failed for: {Url}", url);
+            
+            return ConversionResponse.CreateError(
+                "URL to PDF conversion failed",
+                $"{ex.GetType().Name}: {ex.Message}");
+        }
+        finally
+        {
+            // Clean up temporary HTML file
+            if (tempHtmlPath != null && File.Exists(tempHtmlPath))
+            {
+                try
+                {
+                    File.Delete(tempHtmlPath);
+                    _logger.LogDebug("Deleted temporary HTML file: {Path}", tempHtmlPath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete temporary HTML file: {Path}", tempHtmlPath);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Merge multiple PDF files into a single PDF with normalized page sizes
     /// </summary>
     private void MergePdfFiles(List<string> pdfFiles, string outputPath)
@@ -694,4 +990,245 @@ public class PdfConversionService : IPdfConversionService
             throw new InvalidOperationException("Failed to prepare merge output path", ex);
         }
     }
+
+    /// <summary>
+    /// Convert byte array to PDF
+    /// </summary>
+    public async Task<ByteConversionResponse> ConvertBytesToPdfAsync(
+        byte[] fileBytes, 
+        string? originalFileName = null, 
+        string? outputFileName = null)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        string? tempInputPath = null;
+        string? tempOutputPath = null;
+
+        try
+        {
+            _logger.LogInformation(
+                "Starting byte array conversion (Size: {Size} bytes, OriginalFileName: {FileName})", 
+                fileBytes.Length, 
+                originalFileName ?? "Not provided");
+
+            // Step 1: Validate byte array size (50MB limit)
+            var fileSizeMB = fileBytes.Length / (1024.0 * 1024.0);
+            if (fileSizeMB > _options.MaxFileSizeMB)
+            {
+                _logger.LogWarning("Byte array size too large: {Size}MB (Maximum: {Max}MB)", 
+                    fileSizeMB, _options.MaxFileSizeMB);
+                return ByteConversionResponse.CreateError(
+                    $"File size too large ({fileSizeMB:F2}MB). Maximum allowed: {_options.MaxFileSizeMB}MB");
+            }
+
+            // Ensure PDFTron is initialized
+            InitializePdfTron();
+
+            // Step 2: Detect file type from magic bytes or file name
+            var detectedExtension = DetectFileTypeFromBytes(fileBytes, originalFileName);
+            
+            if (detectedExtension == null)
+            {
+                _logger.LogWarning("Could not detect file type from byte array");
+                return ByteConversionResponse.CreateError(
+                    "Could not detect file type. Please provide OriginalFileName parameter.");
+            }
+
+            _logger.LogInformation("Detected file type: {Extension}", detectedExtension);
+
+            // Step 3: Validate file type is supported
+            if (!_options.AllowedExtensions.Contains(detectedExtension))
+            {
+                _logger.LogWarning("File type not supported: {Extension}", detectedExtension);
+                return ByteConversionResponse.CreateError(
+                    $"File type '{detectedExtension}' is not supported. " +
+                    $"Allowed extensions: {string.Join(", ", _options.AllowedExtensions)}");
+            }
+
+            // Step 4: Save byte array to temporary file
+            tempInputPath = Path.Combine(
+                Path.GetTempPath(), 
+                $"input_{Guid.NewGuid()}{detectedExtension}");
+            
+            await File.WriteAllBytesAsync(tempInputPath, fileBytes);
+            _logger.LogInformation("Saved byte array to temporary file: {TempPath}", tempInputPath);
+
+            // Step 5: Prepare temporary output path
+            tempOutputPath = Path.Combine(
+                Path.GetTempPath(), 
+                $"output_{Guid.NewGuid()}.pdf");
+
+            // Step 6: Perform conversion
+            _logger.LogInformation("Converting {Extension} to PDF...", detectedExtension);
+            await Task.Run(() => PerformConversionByType(tempInputPath, tempOutputPath, detectedExtension));
+
+            // Step 7: Read converted PDF back to byte array
+            var pdfBytes = await File.ReadAllBytesAsync(tempOutputPath);
+            _logger.LogInformation("PDF conversion completed. Output size: {Size} bytes", pdfBytes.Length);
+
+            // Step 8: Prepare output file name
+            var finalOutputFileName = !string.IsNullOrWhiteSpace(outputFileName)
+                ? $"{outputFileName}.pdf"
+                : !string.IsNullOrWhiteSpace(originalFileName)
+                    ? $"{Path.GetFileNameWithoutExtension(originalFileName)}.pdf"
+                    : "converted.pdf";
+
+            stopwatch.Stop();
+
+            _logger.LogInformation(
+                "Byte array conversion completed successfully: {FileName} (Duration: {Duration}ms)",
+                finalOutputFileName,
+                stopwatch.ElapsedMilliseconds);
+
+            return ByteConversionResponse.CreateSuccess(
+                pdfBytes, 
+                finalOutputFileName, 
+                detectedExtension,
+                stopwatch.Elapsed);
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "Byte array conversion failed");
+            
+            return ByteConversionResponse.CreateError(
+                "Byte array conversion failed",
+                $"{ex.GetType().Name}: {ex.Message}");
+        }
+        finally
+        {
+            // Clean up temporary files
+            if (tempInputPath != null && File.Exists(tempInputPath))
+            {
+                try
+                {
+                    File.Delete(tempInputPath);
+                    _logger.LogDebug("Deleted temporary input file: {Path}", tempInputPath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete temporary input file: {Path}", tempInputPath);
+                }
+            }
+
+            if (tempOutputPath != null && File.Exists(tempOutputPath))
+            {
+                try
+                {
+                    File.Delete(tempOutputPath);
+                    _logger.LogDebug("Deleted temporary output file: {Path}", tempOutputPath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete temporary output file: {Path}", tempOutputPath);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Detect file type from byte array magic bytes or file name
+    /// </summary>
+    private string? DetectFileTypeFromBytes(byte[] fileBytes, string? originalFileName)
+    {
+        try
+        {
+            // Priority 1: Try to detect from magic bytes
+            if (fileBytes.Length >= 8)
+            {
+                foreach (var kvp in FileMagicBytes)
+                {
+                    var extension = kvp.Key;
+                    var magicBytesList = kvp.Value;
+
+                    foreach (var magicBytes in magicBytesList)
+                    {
+                        if (fileBytes.Length >= magicBytes.Length)
+                        {
+                            bool matches = true;
+                            for (int i = 0; i < magicBytes.Length; i++)
+                            {
+                                if (fileBytes[i] != magicBytes[i])
+                                {
+                                    matches = false;
+                                    break;
+                                }
+                            }
+
+                            if (matches)
+                            {
+                                _logger.LogInformation(
+                                    "Detected file type from magic bytes: {Extension}", 
+                                    extension);
+                                return extension;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Priority 2: Try to detect from file name if provided
+            if (!string.IsNullOrWhiteSpace(originalFileName))
+            {
+                var extension = Path.GetExtension(originalFileName).ToLowerInvariant();
+                if (!string.IsNullOrEmpty(extension))
+                {
+                    _logger.LogInformation(
+                        "Detected file type from file name: {Extension}", 
+                        extension);
+                    return extension;
+                }
+            }
+
+            // Priority 3: Check if it's a text file (all bytes are printable ASCII)
+            if (fileBytes.Length > 0 && IsTextFile(fileBytes))
+            {
+                _logger.LogInformation("Detected as text file based on content analysis");
+                return ".txt";
+            }
+
+            _logger.LogWarning("Could not detect file type from byte array or file name");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error detecting file type from bytes");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Check if byte array represents a text file
+    /// </summary>
+    private bool IsTextFile(byte[] fileBytes)
+    {
+        try
+        {
+            // Check first 1000 bytes (or less if file is smaller)
+            int checkLength = Math.Min(1000, fileBytes.Length);
+            int textCharCount = 0;
+
+            for (int i = 0; i < checkLength; i++)
+            {
+                byte b = fileBytes[i];
+                
+                // Check if byte is printable ASCII, whitespace, or common control characters
+                if ((b >= 0x20 && b <= 0x7E) || // Printable ASCII
+                    b == 0x09 || // Tab
+                    b == 0x0A || // Line Feed
+                    b == 0x0D)   // Carriage Return
+                {
+                    textCharCount++;
+                }
+            }
+
+            // If more than 95% of bytes are text characters, consider it a text file
+            double textRatio = (double)textCharCount / checkLength;
+            return textRatio > 0.95;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }
+

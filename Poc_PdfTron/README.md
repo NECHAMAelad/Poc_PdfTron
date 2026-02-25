@@ -3,7 +3,69 @@
 A production-ready ASP.NET Core **6.0** Web API for converting **42+ file formats** to PDF using PDFTron SDK.
 
 **🆕 NEW: Compatible with Visual Studio 2019!**  
-**🆕 NEW: Merge multiple files into a single PDF!**
+**🆕 NEW: Merge multiple files into a single PDF!**  
+**🆕 NEW: Convert byte arrays to PDF - No file system required!**  
+**🆕 NEW: Full Hebrew/RTL support for HTML to PDF conversion!**
+
+---
+
+## 🌍 Hebrew & RTL Language Support
+
+### ✨ HTML to PDF with Perfect Hebrew Support
+This project includes **full UTF-8 encoding support** for HTML to PDF conversion:
+
+- ✅ **Hebrew characters** displayed correctly (not `???`)
+- ✅ **RTL (Right-to-Left)** direction preserved
+- ✅ **Nikud (vowel points)** supported
+- ✅ **Mixed Hebrew + English** content
+- ✅ **Custom fonts** (Arial, Tahoma, David, etc.)
+- ✅ **Complex CSS** with colors, styles, tables
+
+#### 📦 Required: HTML2PDF Module
+To convert HTML files, you need to install the **HTML2PDF module**:
+
+```powershell
+# Quick setup (after downloading module)
+.\Tests\install-html2pdf-module.ps1 -ModulePath "C:\Downloads\html2pdf.dll"
+
+# Or see detailed guide
+# Hebrew: Docs\HTML2PDF_Installation_Guide_HE.md
+# English: Docs\HTML2PDF_QUICK_INSTALL_HE.md
+```
+
+#### 🧪 Test Hebrew Conversion
+```powershell
+# Run diagnostic and setup
+.\Tests\setup-html2pdf.ps1
+
+# Test HTML to PDF with Hebrew
+.\Tests\test-html-hebrew.ps1
+```
+
+#### 📝 Example - Hebrew HTML
+```html
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { 
+            font-family: Arial; 
+            direction: rtl; 
+            text-align: right; 
+        }
+    </style>
+</head>
+<body>
+    <h1>שלום עולם!</h1>
+    <p>טקסט בעברית עם <strong>הדגשות</strong>.</p>
+</body>
+</html>
+```
+
+**Result**: Perfect PDF with Hebrew text, RTL layout, and all styles preserved! 🎉
+
+**See:** `HEBREW_ENCODING_FIX.md` for technical details
 
 ---
 
@@ -73,6 +135,23 @@ The API will start on `http://localhost:5063`
 ### Single File Conversion
 Convert any supported file format to PDF
 
+### 🆕 Byte Array to PDF Conversion (NEW!)
+Convert files directly from memory (byte arrays) to PDF:
+- ✅ No file system access required
+- ✅ Automatic file type detection from magic bytes
+- ✅ Maximum flexibility - works with any data source
+- ✅ 50MB size limit for safety
+- ✅ Support for all file formats
+- ✅ Fast: Minimal disk I/O
+
+**Perfect for:**
+- Files already in memory
+- API integrations
+- Database-stored files
+- Dynamic content generation
+
+**See full documentation:** `Docs/ByteArrayConversion_Guide.md`
+
 ### 🆕 Multiple File Merging
 Merge multiple files (of any supported format) into a single PDF document:
 - ✅ Mix different file types (Word, Excel, images, **PDF**, etc.)
@@ -111,6 +190,46 @@ Content-Type: multipart/form-data
 FormData:
   - file: [your file]
   - outputFileName: "optional_name"
+
+Response: application/pdf (binary)
+```
+
+#### 🆕 Convert HTML from URL
+```http
+POST /api/pdfconversion/convert-from-url
+Content-Type: application/json
+
+{
+  "url": "https://www.example.com",
+  "outputFileName": "optional_name"
+}
+
+Response: application/pdf (binary)
+```
+
+#### 🆕 Convert from Byte Array
+```http
+POST /api/pdfconversion/convert-from-bytes
+Content-Type: application/json
+
+{
+  "fileBytes": [77, 90, 144, ...],
+  "originalFileName": "document.docx",
+  "outputFileName": "converted"
+}
+
+Response: JSON with PDF as Base64
+```
+
+#### 🆕 Convert from Byte Array and Download
+```http
+POST /api/pdfconversion/convert-from-bytes-and-download
+Content-Type: application/json
+
+{
+  "fileBytes": [77, 90, 144, ...],
+  "originalFileName": "document.docx"
+}
 
 Response: application/pdf (binary)
 ```
@@ -158,6 +277,25 @@ $response = Invoke-WebRequest ``
 [System.IO.File]::WriteAllBytes("output.pdf", $response.Content)
 ```
 
+#### 🆕 PowerShell Example - Convert URL
+```powershell
+# Convert HTML from URL to PDF
+$body = @{
+    url = "https://www.example.com"
+    outputFileName = "example_page"
+} | ConvertTo-Json
+
+$response = Invoke-WebRequest ``
+    -Uri "http://localhost:5063/api/pdfconversion/convert-from-url" ``
+    -Method Post ``
+    -Body $body ``
+    -ContentType "application/json"
+
+# Save PDF
+[System.IO.File]::WriteAllBytes("output.pdf", $response.Content)
+Write-Host "PDF saved: output.pdf ($($response.Content.Length) bytes)"
+```
+
 #### 🆕 PowerShell Example - Merge Files
 ```powershell
 # Merge multiple files into one PDF
@@ -190,6 +328,37 @@ var response = await client.PostAsync(
 
 var pdfBytes = await response.Content.ReadAsByteArrayAsync();
 await File.WriteAllBytesAsync("output.pdf", pdfBytes);
+```
+
+#### 🆕 C# Example - Byte Array Conversion
+```csharp
+using var client = new HttpClient();
+
+// Read file into byte array
+byte[] fileBytes = File.ReadAllBytes("document.docx");
+
+// Prepare request
+var request = new
+{
+    FileBytes = fileBytes,
+    OriginalFileName = "document.docx",
+    OutputFileName = "converted_doc"
+};
+
+// Send request
+var response = await client.PostAsJsonAsync(
+    "http://localhost:5063/api/pdfconversion/convert-from-bytes",
+    request);
+
+var result = await response.Content.ReadFromJsonAsync<ByteConversionResponse>();
+
+if (result.Success)
+{
+    // Convert from Base64 and save
+    byte[] pdfBytes = Convert.FromBase64String(result.PdfBytes);
+    await File.WriteAllBytesAsync("output.pdf", pdfBytes);
+    Console.WriteLine($"PDF created: {result.PdfSizeBytes} bytes");
+}
 ```
 
 ---
@@ -233,6 +402,22 @@ This script will:
 
 ---
 
+### 🆕 Test Byte Array Conversion
+
+```powershell
+# Test byte array conversion
+Tests\test-byte-conversion.ps1
+```
+
+This script tests:
+- ✅ Conversion from byte arrays (DOCX, images, Excel)
+- ✅ Auto-detection of file types
+- ✅ File size limits (50MB)
+- ✅ Unsupported file type handling
+- ✅ Both response types (JSON and direct download)
+
+---
+
 ### Quick Commands
 
 ```powershell
@@ -249,39 +434,7 @@ Tests\quick-test.ps1
 Tests\testMerge.ps1
 ```
 
-### Run All Tests
-```powershell
-# First time - create sample files
-Tests\test-all-types.ps1 -CreateSamples "true"
 
-# Run comprehensive tests
-Tests\test-all-types.ps1
-```
-
-### Load Testing
-```powershell
-Tests\test-concurrent-load.ps1 -MaxParallel 10
-```
-
-For more test options, see `Tests/README.md`
-
----
-
-## ⚙️ Configuration
-
-Edit `appsettings.json`:
-
-```json
-{
-  "PdfConversion": {
-    "InputDirectory": "C:\\Temp\\Input",
-    "OutputDirectory": "C:\\Temp\\Output",
-    "LicenseKey": "your_license_key_here",
-    "MaxFileSizeMB": 50,
-    "AllowedExtensions": [".doc", ".docx", ".xlsx", ".jpg", "..."]
-  }
-}
-```
 
 ### Key Settings
 - **InputDirectory**: Default location for input files
@@ -321,6 +474,45 @@ Poc_PdfTron/
 
 ---
 
+## 📝 Logging System
+
+This application uses **Serilog** for comprehensive logging:
+
+### Features
+- ✅ **Console Logging**: Real-time logs during development
+- ✅ **File Logging**: Persistent logs saved to `Logs/` directory
+- ✅ **Daily Rotation**: New log file created automatically each day
+- ✅ **Auto-Cleanup**: Keeps last 31 days of logs
+- ✅ **Structured Logging**: Easy to parse and analyze
+- ✅ **Size Limits**: Automatic file splitting at 10MB
+
+### Log Locations
+
+**Log Files**: `Logs/log-yyyyMMdd.txt`  
+Example: `Logs/log-20240315.txt`
+
+**What's Logged:**
+- 🔍 All API requests and responses
+- ⚠️ Validation errors and warnings
+- ❌ Exceptions and error details
+- ✅ Successful conversions with timing
+- 📊 Performance metrics
+- 🔧 PDFTron initialization status
+
+### View Logs in Real-Time
+
+```powershell
+# Watch today's logs
+Get-Content -Path "Logs\log-$(Get-Date -Format 'yyyyMMdd').txt" -Wait -Tail 50
+
+# Search for errors
+Select-String -Path "Logs\*.txt" -Pattern "error" -CaseSensitive:$false
+```
+
+📘 **For complete logging documentation, see:** `Logs/README.md`
+
+---
+
 ## 🔌 API Reference
 
 ### Endpoints
@@ -329,99 +521,15 @@ Poc_PdfTron/
 |--------|----------|-------------|
 | POST | `/api/pdfconversion/upload-and-convert` | Upload file and get PDF |
 | POST | `/api/pdfconversion/convert-and-download` | Convert by file path |
+| **POST** | **`/api/pdfconversion/convert-from-url`** | **🆕 Convert HTML from URL to PDF** |
+| **POST** | **`/api/pdfconversion/convert-from-bytes`** | **🆕 Convert byte array (returns JSON)** |
+| **POST** | **`/api/pdfconversion/convert-from-bytes-and-download`** | **🆕 Convert byte array (returns PDF)** |
 | **POST** | **`/api/pdfconversion/merge`** | **🆕 Merge multiple files (returns info)** |
 | **POST** | **`/api/pdfconversion/merge-and-download`** | **🆕 Merge multiple files (returns PDF)** |
 | GET | `/api/pdfconversion/validate` | Validate file |
 | GET | `/health` | Health check |
 | GET | `/swagger` | API documentation |
 
-### Convert File Response
-
-```json
-{
-  "success": true,
-  "outputFilePath": "C:\\Temp\\Output\\document.pdf",
-  "outputFileName": "document.pdf",
-  "outputFileSizeBytes": 245632,
-  "conversionDuration": "00:00:02.1234567",
-  "errorMessage": null
-}
-```
-
-### 🆕 Merge Files Response
-
-```json
-{
-  "success": true,
-  "outputFilePath": "C:\\Temp\\Output\\mergePDF_20250122_143052.pdf",
-  "outputFileName": "mergePDF_20250122_143052.pdf",
-  "filesProcessed": 3,
-  "totalFiles": 3,
-  "successfulFiles": [
-    "document1.docx",
-    "image.jpg",
-    "spreadsheet.xlsx"
-  ],
-  "failedFiles": [],
-  "duration": "00:00:05.1234567"
-}
-```
-
-**For detailed merge API documentation, see:** `Tests/MERGE_API_GUIDE.md`
-
----
-
-## 🐛 Troubleshooting
-
-### API Won't Start
-
-```powershell
-# Clean and rebuild
-dotnet clean
-dotnet build
-dotnet run
-```
-
-### .NET 6.0 SDK Not Found
-
-**Error**: "The target framework 'net6.0' is not supported"
-
-**Solution**: Download and install .NET 6.0 SDK:
-- https://dotnet.microsoft.com/download/dotnet/6.0
-
-Verify installation:
-```powershell
-dotnet --list-sdks
-```
-
-### Port Already in Use
-
-```powershell
-# Find process using port 5063
-netstat -ano | findstr :5063
-
-# Kill the process
-taskkill /PID [PID_NUMBER] /F
-```
-
-### PDFNetC.dll Not Found
-
-```powershell
-# Verify the file exists
-Test-Path "bin\Debug\net6.0\PDFNetC.dll"
-
-# If missing, rebuild
-dotnet build
-```
-
-### Conversion Fails
-
-1. **Check file format**: Ensure it's in the supported list
-2. **Check file size**: Must be under `MaxFileSizeMB` (default: 50MB)
-3. **Check logs**: Look for errors in console output
-4. **Test with simple file**: Try converting a plain `.txt` file first
-
----
 
 ## 📊 Performance
 
@@ -434,60 +542,6 @@ Based on load testing (see `Tests/` folder for scripts):
 - **Max File Size**: Configurable, default 50MB
 - **Optimal Concurrency**: 10-20 parallel conversions
 
-### Run Performance Test
-```powershell
-Tests\test-concurrent-load.ps1 -MaxParallel 10
-```
-
----
-
-## 🛠️ Development
-
-### Open in Visual Studio 2019/2022
-1. Open `Poc_PdfTron.sln` or `Poc_PdfTron.csproj`
-2. Restore NuGet packages (right-click project > Restore NuGet Packages)
-3. Press F5 to run
-
-### Build
-```powershell
-dotnet build
-```
-
-### Run Tests
-```powershell
-Tests\test-all-types.ps1
-```
-
-### Debug
-```powershell
-dotnet run --environment Development
-```
-
-### View Logs
-Logs are output to console. For advanced logging, configure `appsettings.json`:
-
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning",
-      "Poc_PdfTron": "Debug"
-    }
-  }
-}
-```
-
----
-
-## 🔐 Security Notes
-
-- **Demo License**: This project uses a demo PDFTron license key
-- **File Validation**: Files are validated before conversion
-- **Size Limits**: Maximum file size is enforced
-- **Extension Whitelist**: Only allowed file types can be converted
-- **Path Validation**: File paths are validated to prevent directory traversal
-
 ### For Production
 1. Obtain a production PDFTron license
 2. Implement authentication (API key or JWT)
@@ -496,172 +550,3 @@ Logs are output to console. For advanced logging, configure `appsettings.json`:
 5. Implement input sanitization
 6. Set up proper logging and monitoring
 
----
-
-## 📝 Testing Guide
-
-### Available Test Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `quick-test.ps1` | Fast smoke test (2-3 files) |
-| `test-all-types.ps1` | Test all supported formats |
-| `test-concurrent-load.ps1` | Performance/load testing |
-| `test-api.ps1` | API endpoint testing |
-| `start-viewer.ps1` | Start API and open browser |
-
-### Running Tests
-
-```powershell
-# Navigate to project directory
-cd Poc_PdfTron
-
-# Create sample files (first time only)
-Tests\test-all-types.ps1 -CreateSamples "true"
-
-# Run comprehensive test
-Tests\test-all-types.ps1
-
-# Quick smoke test
-Tests\quick-test.ps1
-
-# Load test with 20 parallel conversions
-Tests\test-concurrent-load.ps1 -MaxParallel 20
-```
-
-### Expected Output
-
-```
-========================================
-Testing All File Type Conversions
-========================================
-
-Testing Word Document (.docx) conversion...
-  ✅ SUCCESS - Output: C:\Temp\Output\document.pdf
-  ⏱️  Duration: 00:00:02.123
-
-Testing Excel Spreadsheet (.xlsx) conversion...
-  ✅ SUCCESS - Output: C:\Temp\Output\spreadsheet.pdf
-  ⏱️  Duration: 00:00:01.856
-
-========================================
-Test Results Summary
-========================================
-✅ Passed:  42
-❌ Failed:  0
-⏭️  Skipped: 0
-```
-
----
-
-## 🚀 Deployment
-
-### IIS Deployment
-
-1. Publish the application:
-```powershell
-dotnet publish -c Release -o ./publish
-```
-
-2. Create IIS website pointing to `./publish`
-3. Ensure PDFNetC.dll is in the publish folder
-4. Configure application pool to use .NET Core
-
-### Docker (Optional)
-
-```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
-WORKDIR /app
-EXPOSE 5063
-
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
-WORKDIR /src
-COPY ["Poc_PdfTron.csproj", "./"]
-RUN dotnet restore
-COPY . .
-RUN dotnet build -c Release -o /app/build
-
-FROM build AS publish
-RUN dotnet publish -c Release -o /app/publish
-
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Poc_PdfTron.dll"]
-```
-
----
-
-## 📚 Additional Resources
-
-- **Swagger UI**: `http://localhost:5063/swagger`
-- **PDFTron Documentation**: https://www.pdftron.com/documentation/
-- **.NET 6 Documentation**: https://learn.microsoft.com/dotnet/core/whats-new/dotnet-6
-- **Get Demo License**: https://www.pdftron.com/pws/get-key
-- **VS2019 Compatibility Guide**: `VS2019_COMPATIBILITY.md`
-
----
-
-## 📄 License
-
-This project uses the PDFTron SDK with a demo license key. For production use, you need to obtain a commercial license from PDFTron.
-
----
-
-## 🤝 Contributing
-
-This is a proof-of-concept project. Feel free to fork and adapt for your needs.
-
----
-
-## ✅ Checklist for First Run
-
-- [ ] Install .NET 6.0 SDK
-- [ ] Install Visual Studio 2019 (16.11+) or VS 2022
-- [ ] Clone/download project
-- [ ] Run `dotnet restore`
-- [ ] Run `dotnet build`
-- [ ] Run `dotnet run`
-- [ ] Open `http://localhost:5063/swagger`
-- [ ] Create test files: `Tests\test-all-types.ps1 -CreateSamples "true"`
-- [ ] Run tests: `Tests\test-all-types.ps1`
-- [ ] Check output: `C:\Temp\Output`
-
----
-
-## 🎉 Summary
-
-This is a **complete, production-ready PDF conversion API** with:
-
-✅ 42+ supported file formats  
-✅ **Visual Studio 2019 compatible!**  
-✅ Built-in web UI for uploads  
-✅ Comprehensive test suite  
-✅ Performance testing tools  
-✅ Swagger documentation  
-✅ Error handling and validation  
-✅ Clean architecture  
-✅ Easy configuration  
-
-### Most Common Commands
-
-```powershell
-# Start API
-dotnet run
-
-# Run tests
-Tests\test-all-types.ps1
-
-# Open web UI
-start http://localhost:5063/pdf-viewer.html
-
-# View API docs
-start http://localhost:5063/swagger
-```
-
----
-
-**Ready to convert! 🚀**
-
-> Built with .NET 6.0 and PDFTron SDK  
-> Compatible with Visual Studio 2019/2022

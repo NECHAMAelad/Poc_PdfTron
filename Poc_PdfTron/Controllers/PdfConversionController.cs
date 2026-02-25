@@ -165,7 +165,14 @@ public class PdfConversionController : ControllerBase
                 endpoints = new
                 {
                     convert = "/api/pdfconversion/convert",
+                    convertAndDownload = "/api/pdfconversion/convert-and-download",
+                    uploadAndConvert = "/api/pdfconversion/upload-and-convert",
+                    convertFromUrl = "/api/pdfconversion/convert-from-url",
+                    convertFromBytes = "/api/pdfconversion/convert-from-bytes",
+                    convertFromBytesAndDownload = "/api/pdfconversion/convert-from-bytes-and-download",
                     validate = "/api/pdfconversion/validate",
+                    merge = "/api/pdfconversion/merge",
+                    mergeAndDownload = "/api/pdfconversion/merge-and-download",
                     settings = "/api/pdfconversion/settings"
                 }
             });
@@ -282,12 +289,43 @@ public class PdfConversionController : ControllerBase
             _logger.LogInformation("Received file upload: {FileName} ({Size} bytes)", 
                 file.FileName, file.Length);
 
-            // Save the uploaded file to a temporary location
+            // Save the uploaded file to a temporary location with proper UTF-8 encoding
             var tempInputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(file.FileName));
             
-            using (var stream = new FileStream(tempInputPath, FileMode.Create))
+            // CRITICAL FIX: For HTML files, we need to preserve UTF-8 encoding
+            // Read the uploaded file content and save it with explicit UTF-8 encoding
+            if (Path.GetExtension(file.FileName).Equals(".html", StringComparison.OrdinalIgnoreCase) || 
+                Path.GetExtension(file.FileName).Equals(".htm", StringComparison.OrdinalIgnoreCase))
             {
-                await file.CopyToAsync(stream);
+                _logger.LogDebug("Detected HTML file - saving with explicit UTF-8 encoding");
+                
+                // Read content as UTF-8
+                string htmlContent;
+                using (var reader = new System.IO.StreamReader(file.OpenReadStream(), System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true))
+                {
+                    htmlContent = await reader.ReadToEndAsync();
+                }
+                
+                // Log first 200 characters for debugging
+                if (htmlContent.Length > 0)
+                {
+                    var preview = htmlContent.Substring(0, Math.Min(200, htmlContent.Length));
+                    _logger.LogDebug("Uploaded HTML content preview: {Preview}...", preview);
+                }
+                
+                // Save with UTF-8 encoding (with BOM for better compatibility)
+                var utf8WithBom = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+                await System.IO.File.WriteAllTextAsync(tempInputPath, htmlContent, utf8WithBom);
+                
+                _logger.LogDebug("Saved HTML file with UTF-8 BOM encoding to: {Path}", tempInputPath);
+            }
+            else
+            {
+                // For non-HTML files, use regular binary copy
+                using (var stream = new FileStream(tempInputPath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
             }
 
             try
@@ -514,4 +552,268 @@ public class PdfConversionController : ControllerBase
             });
         }
     }
+
+    /// <summary>
+    /// Convert HTML from URL to PDF
+    /// </summary>
+    /// <param name="request">URL conversion request containing the URL and optional output file name</param>
+    /// <returns>PDF file as byte stream</returns>
+    /// <response code="200">PDF file returned successfully</response>
+    /// <response code="400">Invalid URL or conversion failed</response>
+    /// <response code="500">Internal server error</response>
+    [HttpPost("convert-from-url")]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ConvertFromUrl([FromBody] UrlConversionRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Received URL conversion request: {Url}", request.Url);
+
+            // Validate model state
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid model state: {Errors}", ModelState);
+                return BadRequest(ModelState);
+            }
+
+            // Perform conversion
+            var result = await _conversionService.ConvertUrlToPdfAsync(
+                request.Url,
+                request.OutputFileName);
+
+            // Check result
+            if (!result.Success)
+            {
+                _logger.LogWarning("URL conversion failed: {Error}", result.ErrorMessage);
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Conversion failed",
+                    Detail = result.ErrorMessage,
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            // Read the PDF file and return it
+            var pdfBytes = await System.IO.File.ReadAllBytesAsync(result.OutputFilePath!);
+            
+            _logger.LogInformation("Returning PDF file: {OutputPath} ({Size} bytes)", 
+                result.OutputFilePath, pdfBytes.Length);
+
+            return File(pdfBytes, "application/pdf", result.OutputFileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing URL conversion request");
+            
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Internal server error",
+                Detail = "An unexpected error occurred during URL conversion. Please try again.",
+                Instance = HttpContext.Request.Path
+            });
+        }
+    }
+
+    /// <summary>
+    /// Convert a byte array to PDF and return the PDF bytes
+    /// </summary>
+    /// <param name="request">Byte conversion request containing file bytes and optional metadata</param>
+    /// <returns>Byte conversion response with PDF bytes or error details</returns>
+    /// <response code="200">Conversion successful, returns PDF as byte array in JSON response</response>
+    /// <response code="400">Invalid request or conversion failed</response>
+    /// <response code="500">Internal server error</response>
+    [HttpPost("convert-from-bytes")]
+    [ProducesResponseType(typeof(ByteConversionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<ByteConversionResponse>> ConvertFromBytes([FromBody] ByteConversionRequest request)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Received byte conversion request (OriginalFileName: {FileName})", 
+                request.OriginalFileName ?? "Not provided");
+
+            // Validate model state
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid model state: {Errors}", ModelState);
+                return BadRequest(ModelState);
+            }
+
+            // Validate Base64 string
+            if (string.IsNullOrWhiteSpace(request.FileBytes))
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "No file data provided",
+                    Detail = "FileBytes string is empty or null",
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            // Decode Base64 to byte array
+            byte[] fileBytes;
+            try
+            {
+                fileBytes = Convert.FromBase64String(request.FileBytes);
+            }
+            catch (FormatException)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Invalid file data",
+                    Detail = "FileBytes must be a valid Base64 encoded string",
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            _logger.LogInformation("Decoded Base64 to {Size} bytes", fileBytes.Length);
+
+            // Perform conversion
+            var result = await _conversionService.ConvertBytesToPdfAsync(
+                fileBytes,
+                request.OriginalFileName,
+                request.OutputFileName);
+
+            // Check result
+            if (!result.Success)
+            {
+                _logger.LogWarning("Byte conversion failed: {Error}", result.ErrorMessage);
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Conversion failed",
+                    Detail = result.ErrorMessage,
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            _logger.LogInformation(
+                "Byte conversion completed successfully: {FileName} ({Size} bytes, Duration: {Duration}ms)",
+                result.OutputFileName,
+                result.PdfSizeBytes,
+                result.ConversionDuration.TotalMilliseconds);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing byte conversion request");
+            
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Internal server error",
+                Detail = "An unexpected error occurred during byte array conversion. Please try again.",
+                Instance = HttpContext.Request.Path
+            });
+        }
+    }
+
+    /// <summary>
+    /// Convert a byte array to PDF and return the PDF file directly for download
+    /// </summary>
+    /// <param name="request">Byte conversion request containing file bytes and optional metadata</param>
+    /// <returns>PDF file as byte stream</returns>
+    /// <response code="200">PDF file returned successfully</response>
+    /// <response code="400">Invalid request or conversion failed</response>
+    /// <response code="500">Internal server error</response>
+    [HttpPost("convert-from-bytes-and-download")]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ConvertFromBytesAndDownload([FromBody] ByteConversionRequest request)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Received byte conversion-and-download request (OriginalFileName: {FileName})", 
+                request.OriginalFileName ?? "Not provided");
+
+            // Validate model state
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid model state: {Errors}", ModelState);
+                return BadRequest(ModelState);
+            }
+
+            // Validate Base64 string
+            if (string.IsNullOrWhiteSpace(request.FileBytes))
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "No file data provided",
+                    Detail = "FileBytes string is empty or null",
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            // Decode Base64 to byte array
+            byte[] fileBytes;
+            try
+            {
+                fileBytes = Convert.FromBase64String(request.FileBytes);
+            }
+            catch (FormatException)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Invalid file data",
+                    Detail = "FileBytes must be a valid Base64 encoded string",
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            _logger.LogInformation("Decoded Base64 to {Size} bytes", fileBytes.Length);
+
+            // Perform conversion
+            var result = await _conversionService.ConvertBytesToPdfAsync(
+                fileBytes,
+                request.OriginalFileName,
+                request.OutputFileName);
+
+            // Check result
+            if (!result.Success)
+            {
+                _logger.LogWarning("Byte conversion failed: {Error}", result.ErrorMessage);
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Conversion failed",
+                    Detail = result.ErrorMessage,
+                    Instance = HttpContext.Request.Path
+                });
+            }
+
+            _logger.LogInformation(
+                "Returning PDF file: {FileName} ({Size} bytes, Duration: {Duration}ms)",
+                result.OutputFileName,
+                result.PdfSizeBytes,
+                result.ConversionDuration.TotalMilliseconds);
+
+            return File(result.PdfBytes!, "application/pdf", result.OutputFileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing byte conversion-and-download request");
+            
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Internal server error",
+                Detail = "An unexpected error occurred during byte array conversion. Please try again.",
+                Instance = HttpContext.Request.Path
+            });
+        }
+    }
 }
+

@@ -1,0 +1,334 @@
+﻿<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>דוגמה מורכבת להמרת HTML ל-PDF</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Tahoma, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* כותרות בעברית - ישור לימין */
+        .rtl {
+            direction: rtl;
+            text-align: right;
+        }
+
+        /* טקסט באנגלית - ישור לשמאל */
+        .ltr {
+            direction: ltr;
+            text-align: left;
+        }
+
+        h1 {
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #e74c3c;
+            font-size: 22px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        h3 {
+            color: #16a085;
+            font-size: 18px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        /* גופנים */
+        .font-arial   { font-family: Arial, sans-serif; }
+        .font-times   { font-family: 'Times New Roman', serif; }
+        .font-courier { font-family: 'Courier New', monospace; }
+
+        /* גדלים */
+        .size-small  { font-size: 12px; }
+        .size-normal { font-size: 14px; }
+        .size-large  { font-size: 18px; }
+        .size-xlarge { font-size: 24px; }
+
+        /* צבעים */
+        .color-blue   { color: #3498db; }
+        .color-red    { color: #e74c3c; }
+        .color-green  { color: #27ae60; }
+        .color-orange { color: #f39c12; }
+        .color-purple { color: #9b59b6; }
+
+        /* עיצוב */
+        .bold      { font-weight: bold; }
+        .italic    { font-style: italic; }
+        .underline { text-decoration: underline; }
+
+        /* טבלה */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        table th {
+            background: #3498db;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        table tr:nth-child(even) { background: #f9f9f9; }
+
+        /* תיבות מידע */
+        .info-box {
+            background: #e3f2fd;
+            border-right: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .warning-box {
+            background: #fff3cd;
+            border-right: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .success-box {
+            background: #d4edda;
+            border-right: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        /* רשימות */
+        ul, ol {
+            margin: 15px 0;
+            padding-right: 30px;
+        }
+        ul li, ol li { margin-bottom: 8px; }
+
+        /* קוד */
+        code {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #c7254e;
+        }
+
+        /* תמונה מדומה */
+        .image-placeholder {
+            width: 100%;
+            height: 120px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        /* פוטר */
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- כותרת ראשית -->
+    <h1 class="rtl">📄 דוגמה מורכבת להמרת HTML ל-PDF</h1>
+
+    <!-- תיבת מידע -->
+    <div class="info-box rtl">
+        <strong>ℹ️ מידע:</strong> דף זה בודק המרת HTML מורכב ל-PDF.
+        הוא כולל עברית, אנגלית, גופנים, צבעים, טבלאות וישורים.
+    </div>
+
+    <!-- חלק 1: גופנים -->
+    <h2 class="rtl">1️⃣ גופנים שונים</h2>
+    <p class="rtl font-arial  size-normal">גופן <span class="bold">Arial רגיל</span> - הגופן הכי נפוץ.</p>
+    <p class="rtl font-times  size-normal">גופן <span class="italic">Times New Roman</span> - קלאסי.</p>
+    <p class="rtl font-courier size-normal">גופן <span class="bold italic">Courier New</span> - monospace.</p>
+
+    <!-- חלק 2: גדלים -->
+    <h2 class="rtl">2️⃣ גדלי טקסט שונים</h2>
+    <p class="rtl size-small">טקסט קטן (12px) - מתאים להערות שוליים.</p>
+    <p class="rtl size-normal">טקסט רגיל (14px) - הגודל הסטנדרטי.</p>
+    <p class="rtl size-large">טקסט גדול (18px) - כותרות משנה.</p>
+    <p class="rtl size-xlarge bold">טקסט גדול מאוד (24px) - כותרות ראשיות.</p>
+
+    <!-- חלק 3: צבעים -->
+    <h2 class="rtl">3️⃣ צבעים מגוונים</h2>
+    <p class="rtl">
+        <span class="color-blue   bold">טקסט כחול</span> |
+        <span class="color-red    bold">טקסט אדום</span> |
+        <span class="color-green  bold">טקסט ירוק</span> |
+        <span class="color-orange bold">טקסט כתום</span> |
+        <span class="color-purple bold">טקסט סגול</span>
+    </p>
+    <p class="rtl">
+        שילוב: <span class="color-blue italic">כחול נטוי</span>,
+        <span class="color-red bold underline">אדום מודגש עם קו תחתון</span>,
+        <span class="color-green bold italic">ירוק מודגש ונטוי</span>.
+    </p>
+
+    <!-- חלק 4: אנגלית LTR -->
+    <h2 class="ltr color-red">4️⃣ English Section (LTR)</h2>
+    <p class="ltr">
+        This is an <span class="bold">English paragraph</span> aligned left (LTR direction).
+        It tests <span class="italic">mixed-direction content</span> in the same document.
+    </p>
+    <p class="ltr color-blue">
+        Colored English text with <span class="bold underline">bold underline</span>,
+        <code>inline code</code>, and <span class="size-large">larger font</span>.
+    </p>
+
+    <!-- חלק 5: רשימות -->
+    <h2 class="rtl">5️⃣ רשימות</h2>
+    <h3 class="rtl">רשימה ממוספרת:</h3>
+    <ol class="rtl">
+        <li><span class="bold">פריט ראשון</span> - עם טקסט מודגש</li>
+        <li><span class="color-blue">פריט שני</span> - עם צבע כחול</li>
+        <li><span class="italic">פריט שלישי</span> - עם טקסט נטוי</li>
+        <li>פריט רביעי - רגיל</li>
+    </ol>
+    <h3 class="rtl">רשימה ממוקדת:</h3>
+    <ul class="rtl">
+        <li>✅ תמיכה מלאה בעברית</li>
+        <li>🎨 תמיכה ב-CSS מתקדם</li>
+        <li>📊 תמיכה בטבלאות מורכבות</li>
+        <li>🔄 המרה מהירה ואמינה</li>
+    </ul>
+
+    <!-- חלק 6: טבלה -->
+    <h2 class="rtl">6️⃣ טבלה מעוצבת</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>מספר</th>
+                <th>שם</th>
+                <th>תיאור</th>
+                <th>סטטוס</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="bold">1</td>
+                <td>פריט ראשון</td>
+                <td class="rtl">תיאור בעברית ✓</td>
+                <td><span class="color-green bold">פעיל</span></td>
+            </tr>
+            <tr>
+                <td class="bold">2</td>
+                <td>פריט שני</td>
+                <td class="rtl">תיאור נוסף 📝</td>
+                <td><span class="color-orange bold">בהמתנה</span></td>
+            </tr>
+            <tr>
+                <td class="bold">3</td>
+                <td>פריט שלישי</td>
+                <td class="rtl">עוד תיאור 🎯</td>
+                <td><span class="color-green bold">פעיל</span></td>
+            </tr>
+            <tr>
+                <td class="bold">4</td>
+                <td>פריט רביעי</td>
+                <td class="rtl">המשך תיאור ⭐</td>
+                <td><span class="color-red bold">לא פעיל</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- חלק 7: תיבות מידע -->
+    <h2 class="rtl">7️⃣ תיבות מידע מעוצבות</h2>
+    <div class="info-box rtl">
+        <strong>💡 טיפ שימושי:</strong> השתמש ב-HTML2PDF כדי להמיר דפי אינטרנט ל-PDF
+        תוך שמירה על העיצוב המלא.
+    </div>
+    <div class="warning-box rtl">
+        <strong>⚠️ אזהרה:</strong> ודא שה-CSS נמצא בתוך תג <code>&lt;style&gt;</code>
+        בתוך ה-<code>&lt;head&gt;</code> למען המרה אופטימלית.
+    </div>
+    <div class="success-box rtl">
+        <strong>✅ הצלחה:</strong> המערכת תומכת ב-CSS3 מלא כולל צבעים, גופנים, טבלאות וישורים.
+    </div>
+
+    <!-- תמונה מדומה -->
+    <div class="image-placeholder">🖼️ מקום לתמונה</div>
+
+    <!-- חלק 8: שילוב שפות -->
+    <h2 class="rtl">8️⃣ שילוב עברית ואנגלית</h2>
+    <p class="rtl">
+        זהו טקסט <span class="bold">בעברית</span> שמכיל מילים באנגלית:
+        <span class="color-blue">HTML</span>,
+        <span class="color-red">CSS</span> ו-<span class="color-green">PDF</span>.
+    </p>
+    <p class="ltr">
+        English text with Hebrew: <span class="color-blue bold">שלום</span>,
+        <span class="color-red bold">עברית</span>,
+        <span class="color-green bold">המרה</span>.
+    </p>
+
+    <!-- חלק 9: קוד -->
+    <h2 class="rtl">9️⃣ דוגמת קוד</h2>
+    <p class="rtl">דוגמת JavaScript פשוטה:</p>
+    <p class="ltr">
+        <code>const msg = "שלום עולם!";</code><br>
+        <code>console.log(msg);</code>
+    </p>
+
+    <!-- פוטר -->
+    <div class="footer">
+        <p>
+            📅 נוצר על ידי: PDFTron HTML2PDF Conversion System<br>
+            ⚙️ מערכת המרה מתקדמת | עברית + English | RTL + LTR
+        </p>
+    </div>
+
+</div>
+</body>
+</html>

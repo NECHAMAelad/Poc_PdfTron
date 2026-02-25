@@ -3,8 +3,38 @@ using System.Runtime.InteropServices;
 using Poc_PdfTron.Models;
 using Poc_PdfTron.Services;
 using Poc_PdfTron.Middleware;
+using Serilog;
+using Serilog.Events;
+
+// =====================================================
+// Configure Serilog
+// =====================================================
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        path: "Logs/log-.txt",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 31,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+        fileSizeLimitBytes: 10_485_760, // 10MB
+        rollOnFileSizeLimit: true)
+    .CreateLogger();
+
+try
+{
+    Log.Information("========================================");
+    Log.Information("Starting PDF Conversion API");
+    Log.Information("========================================");
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add Serilog to the application
+builder.Host.UseSerilog();
 
 // =====================================================
 // Configure Services
@@ -161,3 +191,13 @@ app.Lifetime.ApplicationStarted.Register(() =>
 });
 
 app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.Information("Shutting down PDF Conversion API");
+    Log.CloseAndFlush();
+}

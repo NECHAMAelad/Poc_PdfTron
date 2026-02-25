@@ -27,15 +27,15 @@ public class PdfConversionOptions
 
     /// <summary>
     /// Allowed file extensions for conversion (loaded from appsettings.json)
-    /// Supports 43 different formats including:
+    /// Supports 45 different formats including:
     /// - Office: Word (.doc, .docx, .docm, .dot, .dotx, .dotm)
     /// - Office: Excel (.xls, .xlsx, .xlsm, .xlt, .xltx, .xltm)
     /// - Office: PowerPoint (.ppt, .pptx, .pptm, .pot, .potx, .potm, .pps, .ppsx, .ppsm)
     /// - Images (.jpg, .jpeg, .png, .bmp, .gif, .tif, .tiff, .webp, .svg, .emf, .wmf, .eps)
     /// - Text (.txt, .rtf, .xml, .md)
+    /// - HTML (.html, .htm) - Full HTML2PDF support with CSS, RTL, Hebrew fonts
     /// - PDF (.pdf) - for merging existing PDFs
     /// - Other (.xps, .oxps, .pcl)
-    /// Note: HTML requires Microsoft Word to be installed
     /// </summary>
     public string[] AllowedExtensions { get; set; } = new string[]
     {
@@ -48,8 +48,11 @@ public class PdfConversionOptions
         ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".webp",
         ".svg", ".emf", ".wmf", ".eps",
 
-        // Text & Markup (4 formats) - HTML removed, requires MS Word
+        // Text & Markup (4 formats)
         ".txt", ".rtf", ".xml", ".md",
+
+        // HTML (2 formats) - Native HTML2PDF support
+        ".html", ".htm",
 
         // PDF (1 format) - for merging existing PDFs
         ".pdf",
@@ -62,4 +65,11 @@ public class PdfConversionOptions
     /// Maximum allowed file size in megabytes (MB)
     /// </summary>
     public int MaxFileSizeMB { get; set; } = 50;
+
+    /// <summary>
+    /// Optional: Path to HTML2PDF module directory (if not in default location)
+    /// Example: "C:\\PDFTron\\Modules" or leave empty for auto-detection
+    /// The system will look for html2pdf.dll in this directory
+    /// </summary>
+    public string? Html2PdfModulePath { get; set; }
 }

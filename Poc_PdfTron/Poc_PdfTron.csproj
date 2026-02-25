@@ -8,23 +8,48 @@
 
   <ItemGroup>
     <None Remove="native\win-x64\PDFNetC.dll" />
+    <None Remove="native\win-x64\html2pdf.dll" />
+    <None Remove="native\win-x64\html2pdf_chromium.dll" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="native\win-x64\PDFNetC.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- HTML2PDF module files (if available) -->
+    <Content Include="native\win-x64\html2pdf.dll" Condition="Exists('native\win-x64\html2pdf.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="native\win-x64\html2pdf_chromium.dll" Condition="Exists('native\win-x64\html2pdf_chromium.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
-  <!-- העתקת PDFNetC.dll לשורש אחרי build -->
+  <!-- העתקת PDFNetC.dll ו-HTML2PDF לשורש אחרי build -->
   <Target Name="CopyPDFNetCToRoot" AfterTargets="Build">
     <Copy SourceFiles="$(OutputPath)native\win-x64\PDFNetC.dll" DestinationFiles="$(OutputPath)PDFNetC.dll" SkipUnchangedFiles="true" />
     <Message Text="✅ Copied PDFNetC.dll to output root" Importance="high" />
+    
+    <!-- Copy HTML2PDF if it exists -->
+    <Copy SourceFiles="$(OutputPath)native\win-x64\html2pdf.dll" 
+          DestinationFiles="$(OutputPath)html2pdf.dll" 
+          SkipUnchangedFiles="true" 
+          Condition="Exists('$(OutputPath)native\win-x64\html2pdf.dll')" />
+    <Message Text="✅ Copied html2pdf.dll to output root" Importance="high" Condition="Exists('$(OutputPath)native\win-x64\html2pdf.dll')" />
+    
+    <Copy SourceFiles="$(OutputPath)native\win-x64\html2pdf_chromium.dll" 
+          DestinationFiles="$(OutputPath)html2pdf_chromium.dll" 
+          SkipUnchangedFiles="true" 
+          Condition="Exists('$(OutputPath)native\win-x64\html2pdf_chromium.dll')" />
+    <Message Text="✅ Copied html2pdf_chromium.dll to output root" Importance="high" Condition="Exists('$(OutputPath)native\win-x64\html2pdf_chromium.dll')" />
   </Target>
 
   <ItemGroup>
     <PackageReference Include="PDFTron.NET.x64" Version="10.7.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="6.1.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
   </ItemGroup>
 
 </Project>
