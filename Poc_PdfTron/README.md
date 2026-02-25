@@ -9,6 +9,14 @@ A production-ready ASP.NET Core **6.0** Web API for converting **42+ file format
 
 ---
 
+## 🚀 Quick Start Guide
+
+**👉 For new users, see the simple guide in the root folder: [`../README.md`](../README.md)**
+
+This document contains the complete technical documentation. If you're setting up for the first time, start with the quick guide above!
+
+---
+
 ## 🌍 Hebrew & RTL Language Support
 
 ### ✨ HTML to PDF with Perfect Hebrew Support
@@ -90,21 +98,38 @@ This project is now **fully compatible with Visual Studio 2019** (version 16.11+
 ### Prerequisites
 - **.NET 6.0 SDK** - [Download](https://dotnet.microsoft.com/download/dotnet/6.0)
 - **Visual Studio 2019 (16.11+)** or **Visual Studio 2022**
-- **PDFTron SDK** (included)
+- **PDFTron SDK** (included via NuGet)
 - **Windows** (for native libraries)
 
-### 3-Step Setup
+### ⚡ First-Time Installation
 
-1. **Clone/Download** the project
-2. **Navigate** to the project directory
-3. **Run** the application:
+**📘 For detailed setup instructions, see:** `SETUP_GUIDE.md`
 
+#### Quick Setup (3 steps):
+
+1. **Clone** the repository:
+```powershell
+git clone https://github.com/NECHAMAelad/Poc_PdfTron.git
+cd Poc_PdfTron
+```
+
+2. **Restore & Build** (this downloads PDFTron native libraries):
 ```powershell
 cd Poc_PdfTron
+dotnet restore
+dotnet build
+```
+
+3. **Run** the application:
+```powershell
 dotnet run
 ```
 
 The API will start on `http://localhost:5063`
+
+**✅ That's it!** The PDFTron native DLL files (~240MB) are automatically downloaded from NuGet during build.
+
+**Note:** Native DLL files are NOT included in the Git repository due to their large size. They are provided by the PDFTron.NET.x64 NuGet package.
 
 ---
 
